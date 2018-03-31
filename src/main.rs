@@ -74,9 +74,8 @@ impl PixelSpace {
 
     /// Render all the pixels in a pixel space as Mandelbrot
     /// points for further processing.
-    fn render(&self) -> Vec<u8> {
-        let cap = self.pixel_dims.0 * self.pixel_dims.1;
-        let mut result: Vec<u8> = Vec::with_capacity(cap as usize);
+    fn render(&self, result: &mut [u8]) {
+        let mut p = 0;
         for row in 0..self.pixel_dims.1 {
             for col in 0..self.pixel_dims.0 {
                 let c = self.pixel_to_point((col, row));
@@ -84,23 +83,54 @@ impl PixelSpace {
                     None => 0,
                     Some(t) => 255 - t as u8,
                 };
-                result.push(t);
+                result[p] = t;
+                p += 1;
             }
-        };
-        result
+        }
     }
 
-    /// Write a pixel buffer to a file.
+    /// Render a pixel space to a file.
     fn write_image(&self, filename: &str)
                    -> Result<(), std::io::Error> {
-        let pixels = self.render();
+        let w = self.pixel_dims.0 as usize;
+        let h = self.pixel_dims.1 as usize;
+        let mut pixels = vec![0u8; w * h];
+        let pses = self.bands(8);
+        let mut top = 0;
+        for ps in pses {
+            let h0 = ps.pixel_dims.1 as usize;
+            ps.render(&mut pixels[w * top..w * (top + h0)]);
+            top += h0;
+        }
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
-        let w = self.pixel_dims.0 as u32;
-        let h = self.pixel_dims.1 as u32;
-        encoder.encode(&pixels, w, h, ColorType::Gray(8))
+        encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
     }
 
+    /// Return a vector of PixelSpaces representing the
+    /// `nb` "bands" of the given space.
+    fn bands(&self, nb: usize) -> Vec<PixelSpace> {
+        let mut result = Vec::with_capacity(nb);
+        let q = self.pixel_dims.1 / nb as u64;
+        let mut r = self.pixel_dims.1 % nb as u64;
+        let mut pixel_row = 0;
+        for _ in 0..nb-1 {
+            let mut h = q;
+            if r > 0 {
+                h += 1;
+                r -= 1
+            }
+            let cul = self.pixel_to_point((0, pixel_row));
+            let clr = self.pixel_to_point((self.pixel_dims.0, pixel_row + h));
+            let ps = PixelSpace {
+                pixel_dims: (self.pixel_dims.0, h),
+                complex_corners: (cul, clr),
+            };
+            result.push(ps);
+            pixel_row += h;
+        }
+        result
+    }
 }
 
 #[test]
