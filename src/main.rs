@@ -3,6 +3,7 @@
 // Mandelbrot example from Blandy & Orendorff, ch 1.
 // Compute and display a Mandelbrot set.
 
+extern crate crossbeam;
 extern crate image;
 extern crate num;
 
@@ -96,12 +97,19 @@ impl PixelSpace {
         let h = self.pixel_dims.1 as usize;
         let mut pixels = vec![0u8; w * h];
         let pses = self.bands(8);
-        let mut top = 0;
-        for ps in pses {
+        let mut outbands: Vec<&mut [u8]> = Vec::with_capacity(pses.len());
+        let mut nextband: &mut[u8] = &mut pixels;
+        for ps in &pses {
             let h0 = ps.pixel_dims.1 as usize;
-            ps.render(&mut pixels[w * top..w * (top + h0)]);
-            top += h0;
+            let (cur, rest) = nextband.split_at_mut(w * h0);
+            outbands.push(cur);
+            nextband = rest;
         }
+        crossbeam::scope(|spawner| {
+            for (i, px) in outbands.into_iter().enumerate() {
+                spawner.spawn(move || pses[i].render(px));
+            }
+        });
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
         encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
