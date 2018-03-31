@@ -93,51 +93,34 @@ impl PixelSpace {
     /// Render a pixel space to a file.
     fn write_image(&self, filename: &str)
                    -> Result<(), std::io::Error> {
+        let nthreads = 9;
         let w = self.pixel_dims.0 as usize;
         let h = self.pixel_dims.1 as usize;
         let mut pixels = vec![0u8; w * h];
-        let pses = self.bands(8);
-        let mut outbands: Vec<&mut [u8]> = Vec::with_capacity(pses.len());
-        let mut nextband: &mut[u8] = &mut pixels;
-        for ps in &pses {
-            let h0 = ps.pixel_dims.1 as usize;
-            let (cur, rest) = nextband.split_at_mut(w * h0);
-            outbands.push(cur);
-            nextband = rest;
-        }
         crossbeam::scope(|spawner| {
-            for (i, px) in outbands.into_iter().enumerate() {
-                spawner.spawn(move || pses[i].render(px));
-            }
-        });
+            let mut h0 = 0;
+            let dh = h / nthreads + 1;
+            for px in pixels.chunks_mut(w * dh) {
+                let h1 = std::cmp::min(h as u64, h0 as u64 + dh as u64);
+                let ps = self.band(h0, h1);
+                spawner.spawn(move || ps.render(px));
+                h0 = h1;
+            }});
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
         encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
     }
 
-    /// Return a vector of PixelSpaces representing the
-    /// `nb` "bands" of the given space.
-    fn bands(&self, nb: usize) -> Vec<PixelSpace> {
-        let mut result = Vec::with_capacity(nb);
-        let q = self.pixel_dims.1 / nb as u64;
-        let mut r = self.pixel_dims.1 % nb as u64;
-        let mut pixel_row = 0;
-        for _ in 0..nb-1 {
-            let mut h = q;
-            if r > 0 {
-                h += 1;
-                r -= 1
-            }
-            let cul = self.pixel_to_point((0, pixel_row));
-            let clr = self.pixel_to_point((self.pixel_dims.0, pixel_row + h));
-            let ps = PixelSpace {
-                pixel_dims: (self.pixel_dims.0, h),
-                complex_corners: (cul, clr),
-            };
-            result.push(ps);
-            pixel_row += h;
+    /// Return a PixelSpace representing a horizontal "band"
+    /// of the given space from `h0` to `h1`.
+    fn band(&self, h0: u64, h1: u64) -> PixelSpace {
+        assert!(h0 <= h1);
+        let cul = self.pixel_to_point((0, h0));
+        let clr = self.pixel_to_point((self.pixel_dims.0, h1));
+        PixelSpace {
+            pixel_dims: (self.pixel_dims.0, h1 - h0),
+            complex_corners: (cul, clr),
         }
-        result
     }
 }
 
