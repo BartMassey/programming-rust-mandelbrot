@@ -11,7 +11,6 @@ use image::ColorType;
 use image::png::PNGEncoder;
 use num::Complex;
 use std::fs::File;
-use std::io::Write;
 use std::str::FromStr;
 
 /// Determine if `c` is still a Mandelbrot set candidate
@@ -76,7 +75,7 @@ impl PixelSpace {
             + self.complex_corners.0.re * (1.0 - f0);
         let im = self.complex_corners.1.im * f1
             + self.complex_corners.0.im * (1.0 - f1);
-        return Complex { re, im };
+        Complex { re, im }
     }
 
     /// Render all the pixels in a pixel space as Mandelbrot
@@ -164,10 +163,9 @@ fn test_pixel_to_point() {
 
 /// Show a usage message and exit.
 fn usage() -> ! {
-    writeln!(
-        std::io::stderr(),
-        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr>\n"
-    ).unwrap();
+    eprintln!(
+        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr>"
+    );
     std::process::exit(1)
 }
 
@@ -181,8 +179,8 @@ fn main() {
     let cs = (&args[3])
         .split('x')
         .collect::<Vec<&str>>();
-    let cul = parse_complex(&cs[0]).expect("bad complex coordinates");
-    let clr = parse_complex(&cs[1]).expect("bad complex coordinates");
+    let cul = parse_complex(cs[0]).expect("bad complex coordinates");
+    let clr = parse_complex(cs[1]).expect("bad complex coordinates");
     let ps = PixelSpace {
         pixel_dims,
         complex_corners: (cul, clr),
