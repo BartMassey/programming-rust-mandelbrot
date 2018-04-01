@@ -18,11 +18,14 @@ use std::str::FromStr;
 /// after `limit` iterations. If `c` has been eliminated
 /// return the iteration count.
 fn escape_time(c: Complex<f64>, limit: u64) -> Option<u64> {
-    let mut z = Complex{re: 0.0, im: 0.0};
+    let mut z = Complex {
+        re: 0.0,
+        im: 0.0,
+    };
     for i in 0..limit {
         z = z * z + c;
         if z.norm_sqr() > 4.0 {
-            return Some(i)
+            return Some(i);
         }
     }
     None
@@ -33,9 +36,12 @@ fn escape_time(c: Complex<f64>, limit: u64) -> Option<u64> {
 fn parse_pair<T: FromStr>(s: &str, sep: char) -> Option<(T, T)> {
     let fields: Vec<&str> = s.split(sep).collect();
     if fields.len() != 2 {
-        return None
+        return None;
     }
-    match (T::from_str(fields[0]), T::from_str(fields[1])) {
+    match (
+        T::from_str(fields[0]),
+        T::from_str(fields[1]),
+    ) {
         (Ok(f0), Ok(f1)) => Some((f0, f1)),
         _ => None,
     }
@@ -44,8 +50,8 @@ fn parse_pair<T: FromStr>(s: &str, sep: char) -> Option<(T, T)> {
 /// Parse a complex number.
 fn parse_complex(s: &str) -> Option<Complex<f64>> {
     match parse_pair(s, ',') {
-        Some((re, im)) => Some(Complex{re, im}),
-        None => None
+        Some((re, im)) => Some(Complex { re, im }),
+        None => None,
     }
 }
 
@@ -66,11 +72,11 @@ impl PixelSpace {
         assert!(pixel.1 <= self.pixel_dims.1);
         let f0 = pixel.0 as f64 / self.pixel_dims.0 as f64;
         let f1 = pixel.1 as f64 / self.pixel_dims.1 as f64;
-        let re = self.complex_corners.1.re * f0 +
-            self.complex_corners.0.re * (1.0 - f0);
-        let im = self.complex_corners.1.im * f1 +
-            self.complex_corners.0.im * (1.0 - f1);
-        return Complex{re, im}
+        let re = self.complex_corners.1.re * f0
+            + self.complex_corners.0.re * (1.0 - f0);
+        let im = self.complex_corners.1.im * f1
+            + self.complex_corners.0.im * (1.0 - f1);
+        return Complex { re, im };
     }
 
     /// Render all the pixels in a pixel space as Mandelbrot
@@ -91,8 +97,10 @@ impl PixelSpace {
     }
 
     /// Render a pixel space to a file.
-    fn write_image(&self, filename: &str)
-                   -> Result<(), std::io::Error> {
+    fn write_image(
+        &self,
+        filename: &str,
+    ) -> Result<(), std::io::Error> {
         let nthreads = 9;
         let w = self.pixel_dims.0 as usize;
         let h = self.pixel_dims.1 as usize;
@@ -105,10 +113,16 @@ impl PixelSpace {
                 let ps = self.band(h0, h1);
                 spawner.spawn(move || ps.render(px));
                 h0 = h1;
-            }});
+            }
+        });
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
-        encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
+        encoder.encode(
+            &pixels,
+            w as u32,
+            h as u32,
+            ColorType::Gray(8),
+        )
     }
 
     /// Return a PixelSpace representing a horizontal "band"
@@ -126,19 +140,34 @@ impl PixelSpace {
 
 #[test]
 fn test_pixel_to_point() {
-    let ps = PixelSpace{
+    let ps = PixelSpace {
         pixel_dims: (100, 100),
-        complex_corners: (Complex{re: -1.0, im: 1.0},
-                          Complex{re: 1.0, im: -1.0}),
+        complex_corners: (
+            Complex {
+                re: -1.0,
+                im: 1.0,
+            },
+            Complex {
+                re: 1.0,
+                im: -1.0,
+            },
+        ),
     };
-    assert_eq!(ps.pixel_to_point((25, 75)), Complex{re: -0.5, im: -0.5})
+    assert_eq!(
+        ps.pixel_to_point((25, 75)),
+        Complex {
+            re: -0.5,
+            im: -0.5
+        }
+    )
 }
 
 /// Show a usage message and exit.
 fn usage() -> ! {
-    writeln!(std::io::stderr(),
-             "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr>\n")
-        .unwrap();
+    writeln!(
+        std::io::stderr(),
+        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr>\n"
+    ).unwrap();
     std::process::exit(1)
 }
 
@@ -147,16 +176,17 @@ fn main() {
     if args.len() != 4 {
         usage()
     }
-    let pixel_dims = parse_pair(&args[2], 'x')
-        .expect("bad image dimensions");
-    let cs = (&args[3]).split('x').collect::<Vec<&str>>();
-    let cul = parse_complex(&cs[0])
-        .expect("bad complex coordinates");
-    let clr = parse_complex(&cs[1])
-        .expect("bad complex coordinates");
+    let pixel_dims =
+        parse_pair(&args[2], 'x').expect("bad image dimensions");
+    let cs = (&args[3])
+        .split('x')
+        .collect::<Vec<&str>>();
+    let cul = parse_complex(&cs[0]).expect("bad complex coordinates");
+    let clr = parse_complex(&cs[1]).expect("bad complex coordinates");
     let ps = PixelSpace {
         pixel_dims,
         complex_corners: (cul, clr),
     };
-    ps.write_image(&args[1]).expect("could not write png")
+    ps.write_image(&args[1])
+        .expect("could not write png")
 }
