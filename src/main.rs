@@ -99,14 +99,14 @@ impl PixelSpace {
     fn write_image(
         &self,
         filename: &str,
+        nthreads: usize,
     ) -> Result<(), std::io::Error> {
-        let nthreads = 9;
         let w = self.pixel_dims.0 as usize;
         let h = self.pixel_dims.1 as usize;
         let mut pixels = vec![0u8; w * h];
         crossbeam::scope(|spawner| {
             let mut h0 = 0;
-            let dh = h / nthreads + 1;
+            let dh = h / nthreads;
             for px in pixels.chunks_mut(w * dh) {
                 let h1 = std::cmp::min(h as u64, h0 as u64 + dh as u64);
                 let ps = self.band(h0, h1);
@@ -164,14 +164,14 @@ fn test_pixel_to_point() {
 /// Show a usage message and exit.
 fn usage() -> ! {
     eprintln!(
-        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr>"
+        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr> [<threads>]"
     );
     std::process::exit(1)
 }
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
-    if args.len() != 4 {
+    if args.len() < 4 || args.len() > 5 {
         usage()
     }
     let pixel_dims =
@@ -185,6 +185,12 @@ fn main() {
         pixel_dims,
         complex_corners: (cul, clr),
     };
-    ps.write_image(&args[1])
+    let nthreads =
+        if args.len() == 5 {
+            usize::from_str(&args[4]).expect("non-number of threads")
+        } else {
+            1
+        };
+    ps.write_image(&args[1], nthreads)
         .expect("could not write png")
 }
