@@ -3,12 +3,8 @@
 // Mandelbrot example from Blandy & Orendorff, ch 1.
 // Compute and display a Mandelbrot set.
 
-extern crate crossbeam;
-extern crate image;
-extern crate num;
-
-use image::ColorType;
 use image::png::PNGEncoder;
+use image::ColorType;
 use num::Complex;
 use std::fs::File;
 use std::str::FromStr;
@@ -17,10 +13,7 @@ use std::str::FromStr;
 /// after `limit` iterations. If `c` has been eliminated
 /// return the iteration count.
 fn escape_time(c: Complex<f64>, limit: u64) -> Option<u64> {
-    let mut z = Complex {
-        re: 0.0,
-        im: 0.0,
-    };
+    let mut z = Complex { re: 0.0, im: 0.0 };
     for i in 0..limit {
         z = z * z + c;
         if z.norm_sqr() > 4.0 {
@@ -37,10 +30,7 @@ fn parse_pair<T: FromStr>(s: &str, sep: char) -> Option<(T, T)> {
     if fields.len() != 2 {
         return None;
     }
-    match (
-        T::from_str(fields[0]),
-        T::from_str(fields[1]),
-    ) {
+    match (T::from_str(fields[0]), T::from_str(fields[1])) {
         (Ok(f0), Ok(f1)) => Some((f0, f1)),
         _ => None,
     }
@@ -116,12 +106,7 @@ impl PixelSpace {
         });
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
-        encoder.encode(
-            &pixels,
-            w as u32,
-            h as u32,
-            ColorType::Gray(8),
-        )
+        encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
     }
 
     /// Return a PixelSpace representing a horizontal "band"
@@ -142,30 +127,19 @@ fn test_pixel_to_point() {
     let ps = PixelSpace {
         pixel_dims: (100, 100),
         complex_corners: (
-            Complex {
-                re: -1.0,
-                im: 1.0,
-            },
-            Complex {
-                re: 1.0,
-                im: -1.0,
-            },
+            Complex { re: -1.0, im: 1.0 },
+            Complex { re: 1.0, im: -1.0 },
         ),
     };
     assert_eq!(
         ps.pixel_to_point((25, 75)),
-        Complex {
-            re: -0.5,
-            im: -0.5
-        }
+        Complex { re: -0.5, im: -0.5 }
     )
 }
 
 /// Show a usage message and exit.
 fn usage() -> ! {
-    eprintln!(
-        "usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr> [<threads>]"
-    );
+    eprintln!("usage: mandelbrot <file> <width>x<height> <viewul>x<viewlr> [<threads>]");
     std::process::exit(1)
 }
 
@@ -176,21 +150,18 @@ fn main() {
     }
     let pixel_dims =
         parse_pair(&args[2], 'x').expect("bad image dimensions");
-    let cs = (&args[3])
-        .split('x')
-        .collect::<Vec<&str>>();
+    let cs = (&args[3]).split('x').collect::<Vec<&str>>();
     let cul = parse_complex(cs[0]).expect("bad complex coordinates");
     let clr = parse_complex(cs[1]).expect("bad complex coordinates");
     let ps = PixelSpace {
         pixel_dims,
         complex_corners: (cul, clr),
     };
-    let nthreads =
-        if args.len() == 5 {
-            usize::from_str(&args[4]).expect("non-number of threads")
-        } else {
-            1
-        };
+    let nthreads = if args.len() == 5 {
+        usize::from_str(&args[4]).expect("non-number of threads")
+    } else {
+        1
+    };
     ps.write_image(&args[1], nthreads)
         .expect("could not write png")
 }
