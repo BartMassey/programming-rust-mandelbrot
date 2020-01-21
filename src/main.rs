@@ -1,3 +1,8 @@
+// Copyright © 2018 Jim Blandy, Jason Orendorff, Bart Massey
+// This work is released under the "MIT License".
+// Please see the file LICENSE in the source
+// distribution of this software for license terms.
+
 //! Mandelbrot example from Blandy & Orendorff, ch 1.
 //! Compute and display a Mandelbrot set.
 
