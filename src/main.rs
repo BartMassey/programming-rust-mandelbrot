@@ -1,7 +1,5 @@
-// Copyright © 2018 Bart Massey
-
-// Mandelbrot example from Blandy & Orendorff, ch 1.
-// Compute and display a Mandelbrot set.
+//! Mandelbrot example from Blandy & Orendorff, ch 1.
+//! Compute and display a Mandelbrot set.
 
 use image::png::PNGEncoder;
 use image::ColorType;
@@ -85,15 +83,20 @@ impl PixelSpace {
         }
     }
 
-    /// Render a pixel space to a file.
+    /// Render a pixel space to a file. The strategy is to
+    /// break the image into bands which are rendered in
+    /// parallel.
     fn write_image(
         &self,
         filename: &str,
         nthreads: usize,
     ) -> Result<(), std::io::Error> {
+        // Set up the pixel area.
         let w = self.pixel_dims.0 as usize;
         let h = self.pixel_dims.1 as usize;
         let mut pixels = vec![0u8; w * h];
+
+        // Spawn a thread per band.
         crossbeam::scope(|spawner| {
             let mut h0 = 0;
             let dh = h / nthreads;
@@ -104,6 +107,8 @@ impl PixelSpace {
                 h0 = h1;
             }
         });
+
+        // Write out the image.
         let output = File::create(filename)?;
         let encoder = PNGEncoder::new(output);
         encoder.encode(&pixels, w as u32, h as u32, ColorType::Gray(8))
@@ -144,6 +149,8 @@ fn usage() -> ! {
 }
 
 fn main() {
+    // Process arguments. XXX We should probably be using
+    // something like the `structopt` crate for this.
     let args: Vec<String> = std::env::args().collect();
     if args.len() < 4 || args.len() > 5 {
         usage()
@@ -153,15 +160,19 @@ fn main() {
     let cs = (&args[3]).split('x').collect::<Vec<&str>>();
     let cul = parse_complex(cs[0]).expect("bad complex coordinates");
     let clr = parse_complex(cs[1]).expect("bad complex coordinates");
-    let ps = PixelSpace {
-        pixel_dims,
-        complex_corners: (cul, clr),
-    };
     let nthreads = if args.len() == 5 {
         usize::from_str(&args[4]).expect("non-number of threads")
     } else {
         1
     };
+
+    // Set up the image space.
+    let ps = PixelSpace {
+        pixel_dims,
+        complex_corners: (cul, clr),
+    };
+
+    // Run the visualizer. XXX Panic on error.
     ps.write_image(&args[1], nthreads)
         .expect("could not write png")
 }
